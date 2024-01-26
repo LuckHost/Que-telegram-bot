@@ -8,15 +8,15 @@ from aiogram.filters import Command, StateFilter
 from aiogram.filters.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
-bot_token = "6286746396:AAH9saosXCHtGJcwZ74LGMEcLk32EcWHcYU"
+from config import bot_token
 bot = Bot(token=bot_token)
 
 dp = Dispatcher()
 
 users = {}
-op = {}
-informatics = {}
-vvpd = {}
+op = []
+informatics = []
+vvpd = []
 
 
 
@@ -72,13 +72,26 @@ async def show_base(messege: types.Message, state: FSMContext):
     if len(users) == 0:
         await messege.answer("Список пуст.. Скорее всего сервер перезапускался")
         return
-    answer = ""
+    answer = "Пользователей:\n"
     for i in users:
         answer += f"{users[i]}, \n"
+        
+    answer += "Информатика:\n"
+    for i in informatics:
+        answer += f"{users[i]}, \n"
+        
+    answer += "ВВПД:\n"
+    for i in vvpd:
+        answer += f"{users[i]}, \n"
+    
+    answer += "ОП:\n"
+    for i in op:
+        answer += f"{users[i]}, \n"
+    
     await messege.answer(answer)
     
 @dp.callback_query(F.data.startswith("que_"))
-async def send_random_value(callback: types.CallbackQuery):
+async def send_random_value(callback: types.CallbackQuery, state: FSMContext):
     """
 
     Inline buttons implementation.
@@ -87,13 +100,18 @@ async def send_random_value(callback: types.CallbackQuery):
     action = callback.data.split("_")[1]
     if action == "inform":
         if callback.from_user.id not in informatics:
-            
+            informatics.append(callback.from_user.id)
             await callback.answer("Вы пытаетесь записаться на инфу")
     elif action == "vvpd":
-        await callback.answer("Вы пытаетесь записаться на ввпд")
+        if callback.from_user.id not in vvpd:
+            vvpd.append(callback.from_user.id)
+            await callback.answer("Вы пытаетесь записаться на ввпд")
     elif action == "op":
-        await callback.answer("Вы пытаетесь записаться на ОП")
+        if callback.from_user.id not in op:
+            op.append(callback.from_user.id)
+            await callback.answer("Вы пытаетесь записаться на ОП")
 
+    await state.set_state(Dialog.task_await)
     await callback.answer()
     
 @dp.message(StateFilter(None), Command("sign_up"))
@@ -118,6 +136,8 @@ async def import_name(message: types.Message, state: FSMContext):
     """
 
     Takes the name of user if it is not in base.
+    Users base structure: 
+    User id : username from message, account username 
     
     """
     await message.answer(f"Добро пожаловать, {message.text}!")
