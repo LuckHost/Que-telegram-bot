@@ -18,8 +18,6 @@ op = []
 informatics = []
 vvpd = []
 
-
-
 class Dialog(StatesGroup):
     waiting_for_name = State()
     queue_entry = State()
@@ -35,7 +33,7 @@ async def start_message(messege: types.Message, state: FSMContext):
         
     """
     if messege.from_user.id not in users:
-        await messege.answer("Напииши имя и фамилию")
+        await messege.answer("Напиши имя и фамилию")
         await state.set_state(Dialog.waiting_for_name)
         return
     await messege.answer("C возвращением!")
@@ -51,7 +49,8 @@ async def task_await(messege: types.Message, state: FSMContext):
     reply_keyboard = [
             [
                 KeyboardButton(text="/sign_up"), 
-                KeyboardButton(text="/info")
+                KeyboardButton(text="/info"),
+                KeyboardButton(text="/sign_out")
             ]
             ]
     base_commands_keyboard = ReplyKeyboardMarkup(keyboard=reply_keyboard,
@@ -72,62 +71,126 @@ async def show_base(messege: types.Message, state: FSMContext):
     if len(users) == 0:
         await messege.answer("Список пуст.. Скорее всего сервер перезапускался")
         return
-    answer = "Пользователей:\n"
-    for i in users:
-        answer += f"{users[i]}, \n"
-        
-    answer += "Информатика:\n"
+    
+    #answer = "Пользователей:\n"
+    #for i in users:
+    #    answer += f"{users[i]}, \n"
+    #
+    
+    answer = "Информатика:\n"
     for i in informatics:
         answer += f"{users[i]}, \n"
+    await messege.answer(answer)
         
-    answer += "ВВПД:\n"
+    answer = "\nВВПД:\n"
     for i in vvpd:
         answer += f"{users[i]}, \n"
-    
-    answer += "ОП:\n"
-    for i in op:
-        answer += f"{users[i]}, \n"
-    
     await messege.answer(answer)
     
-@dp.callback_query(F.data.startswith("que_"))
-async def send_random_value(callback: types.CallbackQuery, state: FSMContext):
+    answer = "\nОП:\n"
+    for i in op:
+        answer += f"{users[i]}, \n"
+    await messege.answer(answer)
+    
+@dp.callback_query(F.data.startswith("que_entry_"))
+async def sign_up_function(callback: types.CallbackQuery, state: FSMContext):
     """
 
     Inline buttons implementation.
 
     """
-    action = callback.data.split("_")[1]
+    action = callback.data.split("_")[2]
     if action == "inform":
         if callback.from_user.id not in informatics:
             informatics.append(callback.from_user.id)
-            await callback.answer("Вы пытаетесь записаться на инфу")
+            await callback.message.answer("Вы записались на инфу")
+        else:
+            await callback.message.answer("Вы уже записаны на инфу")
+            
     elif action == "vvpd":
         if callback.from_user.id not in vvpd:
             vvpd.append(callback.from_user.id)
-            await callback.answer("Вы пытаетесь записаться на ввпд")
+            await callback.message.answer("Вы записались на на ввпд")
+        else:
+            await callback.message.answer("Вы уже записаны на ввпд")
+            
     elif action == "op":
         if callback.from_user.id not in op:
             op.append(callback.from_user.id)
-            await callback.answer("Вы пытаетесь записаться на ОП")
+            await callback.message.answer("Вы записались на на ОП")
+        else:
+            await callback.message.answer("Вы уже записаны на ОП")
+        
+            
 
-    await state.set_state(Dialog.task_await)
+    await state.set_state(None)
     await callback.answer()
     
 @dp.message(StateFilter(None), Command("sign_up"))
-async def sign_up(messege: types.Message, state: FSMContext):
+async def sign_up_keyboard(messege: types.Message, state: FSMContext):
     """
     
-    Sign up the user to some queue.
+    Message with the inline keyboard
     
     """
     if messege.from_user.id not in users:
         await messege.answer("Тебя нет в базе.. Введи /start")
         return
     await state.set_state(Dialog.queue_entry)
-    iform_but = InlineKeyboardButton(text = "Информатика", callback_data="que_inform")
-    vvpd_but = InlineKeyboardButton(text = "ВВПД", callback_data="que_vvpd")
-    op_but = InlineKeyboardButton(text = "ОП", callback_data="que_op")
+    iform_but = InlineKeyboardButton(text = "Информатика", callback_data="que_entry_inform")
+    vvpd_but = InlineKeyboardButton(text = "ВВПД", callback_data="que_entry_vvpd")
+    op_but = InlineKeyboardButton(text = "ОП", callback_data="que_entry_op")
+    queue_keyboard = InlineKeyboardBuilder().add(iform_but, vvpd_but, op_but)
+    await messege.answer("Выбери предмет", reply_markup=queue_keyboard.as_markup())
+    
+@dp.callback_query(F.data.startswith("que_leave_"))
+async def sign_up_function(callback: types.CallbackQuery, state: FSMContext):
+    """
+
+    Inline buttons implementation.
+
+    """
+    action = callback.data.split("_")[2]
+    if action == "inform":
+        if callback.from_user.id in informatics:
+            informatics.remove(callback.from_user.id)
+            await callback.message.answer("Вы покинули очередь на инфу")
+        else:
+            await callback.message.answer("Вас нет в очереди на инфу")
+            
+    elif action == "vvpd":
+        if callback.from_user.id in vvpd:
+            vvpd.remove(callback.from_user.id)
+            await callback.message.answer("Вы покинули очередь на ввпд")
+        else:
+            await callback.message.answer("Вас нет в очереди на ввпд")
+            
+    elif action == "op":
+        if callback.from_user.id in op:
+            op.remove(callback.from_user.id)
+            await callback.message.answer("Вы покинули очередь на на ОП")
+        else:
+            await callback.message.answer("Вас нет в очереди на ОП")
+        
+            
+
+    await state.set_state(None)
+    await callback.answer()
+    
+@dp.message(StateFilter(None), Command("sign_out"))
+async def sign_up_keyboard(messege: types.Message, state: FSMContext):
+    """
+    
+    Message with the inline keyboard
+    
+    """
+    if messege.from_user.id not in users:
+        await messege.answer("Тебя нет в базе.. Введи /start")
+        return
+    await state.set_state(Dialog.queue_entry)
+    iform_but = InlineKeyboardButton(text = "Информатика", callback_data="que_leave_inform")
+    vvpd_but = InlineKeyboardButton(text = "ВВПД", callback_data="que_leave_vvpd")
+    op_but = InlineKeyboardButton(text = "ОП", callback_data="que_leave_op")
     queue_keyboard = InlineKeyboardBuilder().add(iform_but, vvpd_but, op_but)
     await messege.answer("Выбери предмет", reply_markup=queue_keyboard.as_markup())
 
@@ -143,6 +206,7 @@ async def import_name(message: types.Message, state: FSMContext):
     await message.answer(f"Добро пожаловать, {message.text}!")
     users.update({message.from_user.id: f"{message.text}, ({message.from_user.full_name})"})
     await state.set_state(Dialog.task_await)
+    await task_await(message, state)
 
 @dp.message(F.text)
 async def echo_message(message: types.Message, state: FSMContext):
